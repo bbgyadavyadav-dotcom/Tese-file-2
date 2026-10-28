@@ -1,5 +1,4 @@
 
-
 name: Render proof of concept
 
 on:
@@ -8,39 +7,77 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+
+          echo "===== FFmpeg PATH CHECK ====="
+          echo "Using command -v:"
           command -v ffmpeg
+
+          echo "Using which:"
+          which ffmpeg
+
+          echo "FFmpeg version:"
           ffmpeg -version | head -n 1
+
+          echo "FFprobe path:"
+          command -v ffprobe
 
       - name: Render 10 s clip
         run: |
           export PATH="/usr/bin:/usr/local/bin:$PATH"
+
+          echo "===== RENDER STEP CHECK ====="
+          echo "PATH=$PATH"
+
+          echo "Using command -v:"
+          command -v ffmpeg
+
+          echo "Using which:"
           which ffmpeg
+
+          echo "FFmpeg version:"
           ffmpeg -version | head -n 1
+
+          echo "Starting Python render..."
           python src/poc.py
 
       - name: Verify MP4
         run: |
           test -f out/poc.mp4
-          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 out/poc.mp4)
-          echo "Duration: $DUR s"
-          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 out/poc.mp4
-          python -c "import sys; d=float('$DUR'); sys.exit(0 if 9.9<=d<=10.1 else 1)"
 
-      - uses: actions/upload-artifact@v4
+          DUR=$(ffprobe -v error \
+            -show_entries format=duration \
+            -of default=nw=1:nk=1 out/poc.mp4)
+
+          echo "Duration: $DUR seconds"
+
+          ffprobe -v error \
+            -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate \
+            -of csv=p=0 out/poc.mp4
+
+          python -c "import sys; d=float('$DUR'); sys.exit(0 if 9.9 <= d <= 10.1 else 1)"
+
+      - name: Upload rendered video
+        uses: actions/upload-artifact@v4
         with:
           name: poc-video
           path: out/poc.mp4
