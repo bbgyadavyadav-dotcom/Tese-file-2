@@ -4,6 +4,9 @@ name: Render proof of concept
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -17,68 +20,83 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install FFmpeg
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+          echo "===== VERIFY INSTALLATION ====="
+          command -v ffmpeg
+          which ffmpeg
+          ffmpeg -version | head -n 1
+          command -v ffprobe
+          ffprobe -version | head -n 1
+
+          test -x /usr/bin/ffmpeg
+          test -x /usr/bin/ffprobe
+
+          echo "/usr/bin" >> "$GITHUB_PATH"
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Install FFmpeg
+      - name: Verify FFmpeg before rendering
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          set -euxo pipefail
 
-          echo "===== FFmpeg PATH CHECK ====="
-          echo "Using command -v:"
-          command -v ffmpeg
-
-          echo "Using which:"
-          which ffmpeg
-
-          echo "FFmpeg version:"
-          ffmpeg -version | head -n 1
-
-          echo "FFprobe path:"
-          command -v ffprobe
-
-      - name: Render 10 s clip
-        run: |
           export PATH="/usr/bin:/usr/local/bin:$PATH"
 
-          echo "===== RENDER STEP CHECK ====="
-          echo "PATH=$PATH"
-
-          echo "Using command -v:"
+          echo "===== FFMPEG PATH ====="
           command -v ffmpeg
-
-          echo "Using which:"
           which ffmpeg
-
-          echo "FFmpeg version:"
           ffmpeg -version | head -n 1
 
-          echo "Starting Python render..."
+          echo "===== FFPROBE PATH ====="
+          command -v ffprobe
+
+          python -c "import shutil; print('Python FFmpeg path:', shutil.which('ffmpeg')); assert shutil.which('ffmpeg')"
+
+      - name: Render 10 second video
+        run: |
+          set -euxo pipefail
           python src/poc.py
 
-      - name: Verify MP4
+      - name: Verify generated MP4
+        shell: bash
         run: |
-          test -f out/poc.mp4
+          set -euxo pipefail
 
-          DUR=$(ffprobe -v error \
+          test -s out/poc.mp4
+
+          echo "===== VIDEO DETAILS ====="
+          ffprobe -v error \
             -show_entries format=duration \
-            -of default=nw=1:nk=1 out/poc.mp4)
-
-          echo "Duration: $DUR seconds"
+            -of default=noprint_wrappers=1:nokey=1 \
+            out/poc.mp4
 
           ffprobe -v error \
             -select_streams v:0 \
             -show_entries stream=width,height,r_frame_rate \
-            -of csv=p=0 out/poc.mp4
+            -of csv=p=0 \
+            out/poc.mp4
 
-          python -c "import sys; d=float('$DUR'); sys.exit(0 if 9.9 <= d <= 10.1 else 1)"
+          DUR=$(ffprobe -v error \
+            -show_entries format=duration \
+            -of default=noprint_wrappers=1:nokey=1 \
+            out/poc.mp4)
 
-      - name: Upload rendered video
+          python -c "import sys; d=float('$DUR'); print(f'Duration: {d:.2f}s'); sys.exit(0 if 9.9 <= d <= 10.1 else 1)"
+
+      - name: Upload video artifact
         uses: actions/upload-artifact@v4
         with:
           name: poc-video
           path: out/poc.mp4
+          if-no-files-found: error
           
