@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install FFmpeg
+           - name: Install FFmpeg
         shell: bash
         run: |
           set -euxo pipefail
@@ -28,15 +28,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-          echo "===== VERIFY INSTALLATION ====="
-          command -v ffmpeg
-          which ffmpeg
-          ffmpeg -version | head -n 1
-          command -v ffprobe
-          ffprobe -version | head -n 1
+          echo "===== CHECK FFMPEG FILE ====="
+          ls -l /usr/bin/ffmpeg
+          /usr/bin/ffmpeg -version | head -n 1
 
-          test -x /usr/bin/ffmpeg
-          test -x /usr/bin/ffprobe
+          echo "===== CHECK FFPROBE FILE ====="
+          ls -l /usr/bin/ffprobe
+          /usr/bin/ffprobe -version | head -n 1
+
+          echo "/usr/bin" >> "$GITHUB_PATH"
+          
 
           echo "/usr/bin" >> "$GITHUB_PATH"
 
