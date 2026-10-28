@@ -1,4 +1,5 @@
 
+
 name: Render proof of concept
 
 on:
@@ -15,21 +16,25 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
 
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
-      - name: Check ffmpeg
-        run: ffmpeg -version | head -n 1
+          command -v ffmpeg
+          ffmpeg -version | head -n 1
 
       - name: Render 10 s clip
-        run: python src/poc.py
+        run: |
+          export PATH="/usr/bin:/usr/local/bin:$PATH"
+          which ffmpeg
+          ffmpeg -version | head -n 1
+          python src/poc.py
 
       - name: Verify MP4
         run: |
+          test -f out/poc.mp4
           DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 out/poc.mp4)
           echo "Duration: $DUR s"
           ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 out/poc.mp4
