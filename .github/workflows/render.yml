@@ -1,0 +1,35 @@
+name: Render proof of concept
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check ffmpeg
+        run: ffmpeg -version | head -n 1
+
+      - name: Render 10 s clip
+        run: python src/poc.py
+
+      - name: Verify MP4
+        run: |
+          DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 out/poc.mp4)
+          echo "Duration: $DUR s"
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 out/poc.mp4
+          python -c "import sys; d=float('$DUR'); sys.exit(0 if 9.9<=d<=10.1 else 1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: poc-video
+          path: out/poc.mp4
